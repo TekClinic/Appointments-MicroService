@@ -3,6 +3,7 @@ module github.com/TekClinic/Appointments-MicroService/server
 go 1.22.0
 
 require (
+	github.com/TekClinic/Appointments-MicroService/appointments_protobuf v0.1.1
 	github.com/TekClinic/MicroService-Lib v0.1.1
 	github.com/uptrace/bun v1.1.17
 	github.com/uptrace/bun/dialect/pgdialect v1.1.17
@@ -30,7 +31,9 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	k8s.io/apimachinery v0.29.2 // indirect
 	mellium.im/sasl v0.3.1 // indirect
 )
+
+replace github.com/TekClinic/Appointments-MicroService/appointments_protobuf => ./../appointments_protobuf
