@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/TekClinic/Appointments-MicroService/auth_protobuf";
+option go_package = "github.com/TekClinic/Appointments-MicroService/appointments_protobuf";
 
 package appointments;
 
