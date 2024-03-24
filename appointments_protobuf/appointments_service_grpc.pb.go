@@ -4,7 +4,7 @@
 // - protoc             v3.12.4
 // source: appointments_service.proto
 
-package auth_protobuf
+package appointments_protobuf
 
 import (
 	context "context"
