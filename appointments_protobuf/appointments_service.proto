@@ -7,8 +7,8 @@ package appointments;
 service AppointmentsService {
   rpc GetAppointment(GetAppointmentRequest) returns (Appointment);
   rpc CreateAppointment(PostAppointmentRequest) returns (AppointmentId);
-  rpc GetAppointments(RangeRequest) returns (stream AppointmentId);
-  rpc AssignPatient(AppointmentIdRequest) returns (PatientId);
+  rpc GetAppointments(RangeRequest) returns (AppointmentsResponse);
+  rpc AssignPatient(AssignPatientRequest) returns (PatientId);
   rpc RemovePatient(AppointmentIdRequest) returns (PatientId);
   rpc DeleteAppointment(AppointmentIdRequest) returns (DeletedMessage);
 }
@@ -61,6 +61,17 @@ message RangeRequest {
   Date date = 2;
   string doctor_id = 3;
   string patient_id = 4;
+}
+
+message AppointmentsResponse {
+  int32 count = 1;
+  repeated int32 results = 2;
+}
+
+message AssignPatientRequest {
+  string token = 1;
+  int64 appointment_id = 2;
+  int64 patient_id = 3;
 }
 
 message AppointmentIdRequest {
