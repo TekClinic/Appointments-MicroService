@@ -654,7 +654,7 @@ func (x *PatientId) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PatientId.ProtoReflect.Descriptor instead.
+// Deprecated: Use PatientID.ProtoReflect.Descriptor instead.
 func (*PatientId) Descriptor() ([]byte, []int) {
 	return file_appointments_service_proto_rawDescGZIP(), []int{9}
 }
@@ -922,7 +922,7 @@ var file_appointments_service_proto_goTypes = []interface{}{
 	(*AppointmentsResponse)(nil),   // 6: appointments.AppointmentsResponse
 	(*AssignPatientRequest)(nil),   // 7: appointments.AssignPatientRequest
 	(*AppointmentIdRequest)(nil),   // 8: appointments.AppointmentIdRequest
-	(*PatientId)(nil),              // 9: appointments.PatientId
+	(*PatientId)(nil),              // 9: appointments.PatientID
 	(*DeletedMessage)(nil),         // 10: appointments.DeletedMessage
 	(*RangeRequest_Date)(nil),      // 11: appointments.RangeRequest.Date
 }
@@ -941,8 +941,8 @@ var file_appointments_service_proto_depIdxs = []int32{
 	2,  // 11: appointments.AppointmentsService.GetAppointment:output_type -> appointments.Appointment
 	4,  // 12: appointments.AppointmentsService.CreateAppointment:output_type -> appointments.AppointmentId
 	6,  // 13: appointments.AppointmentsService.GetAppointments:output_type -> appointments.AppointmentsResponse
-	9,  // 14: appointments.AppointmentsService.AssignPatient:output_type -> appointments.PatientId
-	9,  // 15: appointments.AppointmentsService.RemovePatient:output_type -> appointments.PatientId
+	9,  // 14: appointments.AppointmentsService.AssignPatient:output_type -> appointments.PatientID
+	9,  // 15: appointments.AppointmentsService.RemovePatient:output_type -> appointments.PatientID
 	10, // 16: appointments.AppointmentsService.DeleteAppointment:output_type -> appointments.DeletedMessage
 	11, // [11:17] is the sub-list for method output_type
 	5,  // [5:11] is the sub-list for method input_type
