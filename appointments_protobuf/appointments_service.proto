@@ -44,8 +44,8 @@ message AppointmentID {
 message RangeRequest {
   string token = 1;
   string date = 2;
-  string doctor_id = 3;
-  string patient_id = 4;
+  int64 doctor_id = 3;
+  int64 patient_id = 4;
 }
 
 message AppointmentsResponse {
