@@ -30,23 +30,13 @@ type Appointment struct {
 	Visited           bool
 }
 
-func createGRPCDate(time time.Time) *ppb.Time {
-	return &ppb.Time{
-		Day:    int32(time.Day()),
-		Month:  int32(time.Month()),
-		Year:   int32(time.Year()),
-		Hour:   int32(time.Hour()),
-		Minute: int32(time.Minute()),
-	}
-}
-
 func (appointment Appointment) toGRPC() *ppb.Appointment {
 	return &ppb.Appointment{
 		Id:                int64(appointment.ID),
 		PatientId:         int64(appointment.PatientID),
 		DoctorId:          int64(appointment.DoctorID),
-		StartTime:         createGRPCDate(appointment.StartTime),
-		EndTime:           createGRPCDate(appointment.EndTime),
+		StartTime:         appointment.StartTime.Format("2006-01-02T15:04:05"),
+		EndTime:           appointment.EndTime.Format("2006-01-02T15:04:05"),
 		ApprovedByPatient: appointment.ApprovedByPatient,
 		Visited:           appointment.Visited,
 	}
@@ -92,45 +82,43 @@ func (server appointmentsServer) GetAppointment(ctx context.Context,
 	return appointment.toGRPC(), nil
 }
 
-func (server appointmentsServer) CreateAppointment(ctx context.Context,
-	req *ppb.PostAppointmentRequest) (*ppb.AppointmentId, error) {
-	claims, err := server.VerifyToken(ctx, req.GetToken())
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-	if !claims.HasRole("admin") {
-		return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
-	}
+func (server appointmentsServer) CreateAppointment(ctx context.Context, req *ppb.PostAppointmentRequest) (*ppb.AppointmentID, error) {
+    claims, err := server.VerifyToken(ctx, req.GetToken())
+    if err != nil {
+        return nil, status.Error(codes.Unauthenticated, err.Error())
+    }
+    if !claims.HasRole("admin") {
+        return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
+    }
 
-	appointment := Appointment{
-		PatientID: int(req.GetPatientId()),
-		DoctorID:  int(req.GetDoctorId()),
-		StartTime: time.Date(
-			int(req.GetStartTime().GetYear()),
-			time.Month(req.GetStartTime().GetMonth()),
-			int(req.GetStartTime().GetDay()),
-			int(req.GetStartTime().GetHour()),
-			int(req.GetStartTime().GetMinute()),
-			0, 0, time.UTC,
-		),
-		EndTime: time.Date(
-			int(req.GetEndTime().GetYear()),
-			time.Month(req.GetEndTime().GetMonth()),
-			int(req.GetEndTime().GetDay()),
-			int(req.GetEndTime().GetHour()),
-			int(req.GetEndTime().GetMinute()),
-			0, 0, time.UTC,
-		),
-		ApprovedByPatient: false,
-		Visited:           false,
-	}
+    // Assuming req.GetStartTime() and req.GetEndTime() return strings in "2006-01-02T15:04:05Z" format
+    startTimeStr := req.GetStartTime()
+    startTime, err := time.Parse(time.RFC3339, startTimeStr)
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse start time: %w", err).Error())
+    }
 
-	_, err = server.db.NewInsert().Model(&appointment).Exec(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Errorf("failed to create an appointment: %w", err).Error())
-	}
+    endTimeStr := req.GetEndTime()
+    endTime, err := time.Parse(time.RFC3339, endTimeStr)
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse end time: %w", err).Error())
+    }
 
-	return &ppb.AppointmentId{Id: int64(appointment.ID)}, nil
+    appointment := Appointment{
+        PatientID:         int(req.GetPatientId()),
+        DoctorID:          int(req.GetDoctorId()),
+        StartTime:         startTime,
+        EndTime:           endTime,
+        ApprovedByPatient: false,
+        Visited:           false,
+    }
+
+    _, err = server.db.NewInsert().Model(&appointment).Exec(ctx)
+    if err != nil {
+        return nil, status.Error(codes.Internal, fmt.Errorf("failed to create an appointment: %w", err).Error())
+    }
+
+    return &ppb.AppointmentID{Id: int64(appointment.ID)}, nil
 }
 
 func (server appointmentsServer) GetAppointments(ctx context.Context,
@@ -143,9 +131,12 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 		return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
 	}
 
-	// Parse date from request
-	date := time.Date(int(req.GetDate().GetYear()),
-		time.Month(req.GetDate().GetMonth()), int(req.GetDate().GetDay()), 0, 0, 0, 0, time.UTC)
+	// Assuming req.GetDate() returns a string in "2006-01-02" format
+    dateStr := req.GetDate()
+    date, err := time.Parse("2006-01-02", dateStr)
+    if err != nil {
+        return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse date: %w", err).Error())
+    }
 
 	// Fetch appointments based on filters
 	baseQuery := server.db.NewSelect().Model((*Appointment)(nil))
@@ -182,7 +173,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 }
 
 func (server appointmentsServer) AssignPatient(ctx context.Context,
-	req *ppb.AssignPatientRequest) (*ppb.PatientId, error) {
+	req *ppb.AssignPatientRequest) (*ppb.PatientID, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -203,11 +194,11 @@ func (server appointmentsServer) AssignPatient(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to assign patient to appointment: %w", err).Error())
 	}
 
-	return &ppb.PatientId{PatientId: req.GetPatientId()}, nil
+	return &ppb.PatientID{PatientId: req.GetPatientId()}, nil
 }
 
 func (server appointmentsServer) RemovePatient(ctx context.Context,
-	req *ppb.AppointmentIdRequest) (*ppb.PatientId, error) {
+	req *ppb.AppointmentIDRequest) (*ppb.PatientID, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -229,11 +220,11 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to remove patient from appointment: %w", err).Error())
 	}
 
-	return &ppb.PatientId{PatientId: int64(patientID)}, nil
+	return &ppb.PatientID{PatientId: int64(patientID)}, nil
 }
 
 func (server appointmentsServer) DeleteAppointment(ctx context.Context,
-	req *ppb.AppointmentIdRequest) (*ppb.DeletedMessage, error) {
+	req *ppb.AppointmentIDRequest) (*ppb.DeletedMessage, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())

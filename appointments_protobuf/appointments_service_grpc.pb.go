@@ -23,11 +23,11 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AppointmentsServiceClient interface {
 	GetAppointment(ctx context.Context, in *GetAppointmentRequest, opts ...grpc.CallOption) (*Appointment, error)
-	CreateAppointment(ctx context.Context, in *PostAppointmentRequest, opts ...grpc.CallOption) (*AppointmentId, error)
+	CreateAppointment(ctx context.Context, in *PostAppointmentRequest, opts ...grpc.CallOption) (*AppointmentID, error)
 	GetAppointments(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*AppointmentsResponse, error)
-	AssignPatient(ctx context.Context, in *AssignPatientRequest, opts ...grpc.CallOption) (*PatientId, error)
-	RemovePatient(ctx context.Context, in *AppointmentIdRequest, opts ...grpc.CallOption) (*PatientId, error)
-	DeleteAppointment(ctx context.Context, in *AppointmentIdRequest, opts ...grpc.CallOption) (*DeletedMessage, error)
+	AssignPatient(ctx context.Context, in *AssignPatientRequest, opts ...grpc.CallOption) (*PatientID, error)
+	RemovePatient(ctx context.Context, in *AppointmentIDRequest, opts ...grpc.CallOption) (*PatientID, error)
+	DeleteAppointment(ctx context.Context, in *AppointmentIDRequest, opts ...grpc.CallOption) (*DeletedMessage, error)
 }
 
 type appointmentsServiceClient struct {
@@ -47,8 +47,8 @@ func (c *appointmentsServiceClient) GetAppointment(ctx context.Context, in *GetA
 	return out, nil
 }
 
-func (c *appointmentsServiceClient) CreateAppointment(ctx context.Context, in *PostAppointmentRequest, opts ...grpc.CallOption) (*AppointmentId, error) {
-	out := new(AppointmentId)
+func (c *appointmentsServiceClient) CreateAppointment(ctx context.Context, in *PostAppointmentRequest, opts ...grpc.CallOption) (*AppointmentID, error) {
+	out := new(AppointmentID)
 	err := c.cc.Invoke(ctx, "/appointments.AppointmentsService/CreateAppointment", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -65,8 +65,8 @@ func (c *appointmentsServiceClient) GetAppointments(ctx context.Context, in *Ran
 	return out, nil
 }
 
-func (c *appointmentsServiceClient) AssignPatient(ctx context.Context, in *AssignPatientRequest, opts ...grpc.CallOption) (*PatientId, error) {
-	out := new(PatientId)
+func (c *appointmentsServiceClient) AssignPatient(ctx context.Context, in *AssignPatientRequest, opts ...grpc.CallOption) (*PatientID, error) {
+	out := new(PatientID)
 	err := c.cc.Invoke(ctx, "/appointments.AppointmentsService/AssignPatient", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -74,8 +74,8 @@ func (c *appointmentsServiceClient) AssignPatient(ctx context.Context, in *Assig
 	return out, nil
 }
 
-func (c *appointmentsServiceClient) RemovePatient(ctx context.Context, in *AppointmentIdRequest, opts ...grpc.CallOption) (*PatientId, error) {
-	out := new(PatientId)
+func (c *appointmentsServiceClient) RemovePatient(ctx context.Context, in *AppointmentIDRequest, opts ...grpc.CallOption) (*PatientID, error) {
+	out := new(PatientID)
 	err := c.cc.Invoke(ctx, "/appointments.AppointmentsService/RemovePatient", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *appointmentsServiceClient) RemovePatient(ctx context.Context, in *Appoi
 	return out, nil
 }
 
-func (c *appointmentsServiceClient) DeleteAppointment(ctx context.Context, in *AppointmentIdRequest, opts ...grpc.CallOption) (*DeletedMessage, error) {
+func (c *appointmentsServiceClient) DeleteAppointment(ctx context.Context, in *AppointmentIDRequest, opts ...grpc.CallOption) (*DeletedMessage, error) {
 	out := new(DeletedMessage)
 	err := c.cc.Invoke(ctx, "/appointments.AppointmentsService/DeleteAppointment", in, out, opts...)
 	if err != nil {
@@ -97,11 +97,11 @@ func (c *appointmentsServiceClient) DeleteAppointment(ctx context.Context, in *A
 // for forward compatibility
 type AppointmentsServiceServer interface {
 	GetAppointment(context.Context, *GetAppointmentRequest) (*Appointment, error)
-	CreateAppointment(context.Context, *PostAppointmentRequest) (*AppointmentId, error)
+	CreateAppointment(context.Context, *PostAppointmentRequest) (*AppointmentID, error)
 	GetAppointments(context.Context, *RangeRequest) (*AppointmentsResponse, error)
-	AssignPatient(context.Context, *AssignPatientRequest) (*PatientId, error)
-	RemovePatient(context.Context, *AppointmentIdRequest) (*PatientId, error)
-	DeleteAppointment(context.Context, *AppointmentIdRequest) (*DeletedMessage, error)
+	AssignPatient(context.Context, *AssignPatientRequest) (*PatientID, error)
+	RemovePatient(context.Context, *AppointmentIDRequest) (*PatientID, error)
+	DeleteAppointment(context.Context, *AppointmentIDRequest) (*DeletedMessage, error)
 	mustEmbedUnimplementedAppointmentsServiceServer()
 }
 
@@ -112,19 +112,19 @@ type UnimplementedAppointmentsServiceServer struct {
 func (UnimplementedAppointmentsServiceServer) GetAppointment(context.Context, *GetAppointmentRequest) (*Appointment, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAppointment not implemented")
 }
-func (UnimplementedAppointmentsServiceServer) CreateAppointment(context.Context, *PostAppointmentRequest) (*AppointmentId, error) {
+func (UnimplementedAppointmentsServiceServer) CreateAppointment(context.Context, *PostAppointmentRequest) (*AppointmentID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAppointment not implemented")
 }
 func (UnimplementedAppointmentsServiceServer) GetAppointments(context.Context, *RangeRequest) (*AppointmentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAppointments not implemented")
 }
-func (UnimplementedAppointmentsServiceServer) AssignPatient(context.Context, *AssignPatientRequest) (*PatientId, error) {
+func (UnimplementedAppointmentsServiceServer) AssignPatient(context.Context, *AssignPatientRequest) (*PatientID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AssignPatient not implemented")
 }
-func (UnimplementedAppointmentsServiceServer) RemovePatient(context.Context, *AppointmentIdRequest) (*PatientId, error) {
+func (UnimplementedAppointmentsServiceServer) RemovePatient(context.Context, *AppointmentIDRequest) (*PatientID, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemovePatient not implemented")
 }
-func (UnimplementedAppointmentsServiceServer) DeleteAppointment(context.Context, *AppointmentIdRequest) (*DeletedMessage, error) {
+func (UnimplementedAppointmentsServiceServer) DeleteAppointment(context.Context, *AppointmentIDRequest) (*DeletedMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAppointment not implemented")
 }
 func (UnimplementedAppointmentsServiceServer) mustEmbedUnimplementedAppointmentsServiceServer() {}
@@ -213,7 +213,7 @@ func _AppointmentsService_AssignPatient_Handler(srv interface{}, ctx context.Con
 }
 
 func _AppointmentsService_RemovePatient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AppointmentIdRequest)
+	in := new(AppointmentIDRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -225,13 +225,13 @@ func _AppointmentsService_RemovePatient_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/appointments.AppointmentsService/RemovePatient",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AppointmentsServiceServer).RemovePatient(ctx, req.(*AppointmentIdRequest))
+		return srv.(AppointmentsServiceServer).RemovePatient(ctx, req.(*AppointmentIDRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _AppointmentsService_DeleteAppointment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AppointmentIdRequest)
+	in := new(AppointmentIDRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func _AppointmentsService_DeleteAppointment_Handler(srv interface{}, ctx context
 		FullMethod: "/appointments.AppointmentsService/DeleteAppointment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AppointmentsServiceServer).DeleteAppointment(ctx, req.(*AppointmentIdRequest))
+		return srv.(AppointmentsServiceServer).DeleteAppointment(ctx, req.(*AppointmentIDRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
