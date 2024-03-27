@@ -35,8 +35,8 @@ func (appointment Appointment) toGRPC() *ppb.Appointment {
 		Id:                int64(appointment.ID),
 		PatientId:         int64(appointment.PatientID),
 		DoctorId:          int64(appointment.DoctorID),
-		StartTime:         appointment.StartTime.Format("2006-01-02T15:04:05"),
-		EndTime:           appointment.EndTime.Format("2006-01-02T15:04:05"),
+		StartTime:         appointment.StartTime.Format("2006-01-02T15:04:05Z"),
+		EndTime:           appointment.EndTime.Format("2006-01-02T15:04:05Z"),
 		ApprovedByPatient: appointment.ApprovedByPatient,
 		Visited:           appointment.Visited,
 	}
@@ -74,11 +74,15 @@ func (server appointmentsServer) GetAppointment(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("id = ?", req.GetId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.Id).Scan(ctx)
+	//also try
+	//	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
 
+	fmt.Printf("Retrieved appointment: %+v\n", appointment)
 	return appointment.toGRPC(), nil
 }
 
@@ -93,13 +97,13 @@ func (server appointmentsServer) CreateAppointment(ctx context.Context, req *ppb
 
     // Assuming req.GetStartTime() and req.GetEndTime() return strings in "2006-01-02T15:04:05Z" format
     startTimeStr := req.GetStartTime()
-    startTime, err := time.Parse(time.RFC3339, startTimeStr)
+    startTime, err := time.Parse("2006-01-02T15:04:05Z", startTimeStr)
     if err != nil {
         return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse start time: %w", err).Error())
     }
 
     endTimeStr := req.GetEndTime()
-    endTime, err := time.Parse(time.RFC3339, endTimeStr)
+    endTime, err := time.Parse("2006-01-02T15:04:05Z", endTimeStr)
     if err != nil {
         return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse end time: %w", err).Error())
     }
