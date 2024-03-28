@@ -166,12 +166,12 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 	baseQuery = baseQuery.Where("start_time >= ?", date).Where("end_time <= ?", date.AddDate(0, 0, 1))
 
 	// Filter by doctor ID
-	if req.GetDoctorId() != "" {
+	if req.GetDoctorId() != 0 {
 		baseQuery = baseQuery.Where("doctor_id = ?", req.GetDoctorId())
 	}
 
 	// Filter by patient ID
-	if req.GetPatientId() != "" {
+	if req.GetPatientId() != 0 {
 		baseQuery = baseQuery.Where("patient_id = ?", req.GetPatientId())
 	}
 
@@ -277,7 +277,7 @@ func (server appointmentsServer) DeleteAppointment(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to delete appointment: %w", err).Error())
 	}
 
-	return &ppb.DeletedMessage{Messgae: "Appointment deleted successfully"}, nil
+	return &ppb.DeletedMessage{Message: "Appointment deleted successfully"}, nil
 }
 
 // createAppointmentsServer initializing an AppointmentServer with all the necessary fields.

@@ -69,5 +69,5 @@ message PatientID{
 }
 
 message DeletedMessage{
-  string messgae = 1;
+  string message = 1;
 }
