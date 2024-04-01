@@ -1,3 +1,5 @@
+github.com/TekClinic/Appointments-MicroService/appointments_protobuf v0.1.2 h1:5ueyQ03WtxefgfQK8HDlFn09tHfRW3CWljXzKZ/+698=
+github.com/TekClinic/Appointments-MicroService/appointments_protobuf v0.1.2/go.mod h1:VLVetC8Cp/7YXUJoImhHGdSoeNSsC1fK0ijTOUzsfg0=
 github.com/TekClinic/MicroService-Lib v0.1.1 h1:z8h7tTyGagAcCGiotIU90MK54KPiaqQEzvTXQoVyMQE=
 github.com/TekClinic/MicroService-Lib v0.1.1/go.mod h1:E+H5ws1krOZ8bJT1DtbZVUplxAJybdWXfVeZbpeaeqQ=
 github.com/coreos/go-oidc/v3 v3.9.0 h1:0J/ogVOd4y8P0f0xUh8l9t07xRP/d8tccvjHl2dcsSo=

@@ -3,7 +3,7 @@ module github.com/TekClinic/Appointments-MicroService/server
 go 1.22.0
 
 require (
-	github.com/TekClinic/Appointments-MicroService/appointments_protobuf v0.1.1
+	github.com/TekClinic/Appointments-MicroService/appointments_protobuf v0.1.2
 	github.com/TekClinic/MicroService-Lib v0.1.1
 	github.com/uptrace/bun v1.1.17
 	github.com/uptrace/bun/dialect/pgdialect v1.1.17
@@ -35,5 +35,3 @@ require (
 	k8s.io/apimachinery v0.29.2 // indirect
 	mellium.im/sasl v0.3.1 // indirect
 )
-
-replace github.com/TekClinic/Appointments-MicroService/appointments_protobuf => ./../appointments_protobuf
