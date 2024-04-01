@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -32,11 +33,11 @@ type Appointment struct {
 }
 
 // toGRPC returns a GRPC version of Appointment.
-func (appointment Appointment) toGRPC() *ppb.Appointment {
-	return &ppb.Appointment{
-		Id:                int64(appointment.ID),
-		PatientId:         int64(appointment.PatientID),
-		DoctorId:          int64(appointment.DoctorID),
+func (appointment Appointment) toGRPC() *ppb.GetAppointmentResponse {
+	return &ppb.GetAppointmentResponse{
+		Id:                int32(appointment.ID),
+		PatientId:         int32(appointment.PatientID),
+		DoctorId:          int32(appointment.DoctorID),
 		StartTime:         appointment.StartTime.Format(time.RFC3339),
 		EndTime:           appointment.EndTime.Format(time.RFC3339),
 		ApprovedByPatient: appointment.ApprovedByPatient,
@@ -65,14 +66,17 @@ type appointmentsServer struct {
 	db *bun.DB
 }
 
-const permissionDeniedMessage = "You don't have enough permission to access this resource"
+const (
+	permissionDeniedMessage = "You don't have enough permission to access this resource"
+	maxPaginationLimit      = 50
+)
 
 // GetAppointment returns the appointment information corresponding to the given ID.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
 // Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If the appointment with the given ID doesn't exist, codes.NotFound is returned.
 func (server appointmentsServer) GetAppointment(ctx context.Context,
-	req *ppb.GetAppointmentRequest) (*ppb.Appointment, error) {
+	req *ppb.GetAppointmentRequest) (*ppb.GetAppointmentResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -98,8 +102,8 @@ func (server appointmentsServer) GetAppointment(ctx context.Context,
 // If there's an error in creating the appointment, an appropriate error is returned.
 func (server appointmentsServer) CreateAppointment(
 	ctx context.Context,
-	req *ppb.PostAppointmentRequest,
-) (*ppb.AppointmentID, error) {
+	req *ppb.CreateAppointmentRequest,
+) (*ppb.CreateAppointmentResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -121,9 +125,20 @@ func (server appointmentsServer) CreateAppointment(
 		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse end time: %w", err).Error())
 	}
 
+	patientID := int(req.GetPatientId())
+	doctorID := int(req.GetDoctorId())
+	if doctorID == 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("DoctorID is required in order to create an appointment").Error())
+	}
+	if patientID < 0 || doctorID < 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("PatientID, DoctorID have to be non-negative values").Error())
+	}
+
 	appointment := Appointment{
-		PatientID:         int(req.GetPatientId()),
-		DoctorID:          int(req.GetDoctorId()),
+		PatientID:         patientID,
+		DoctorID:          doctorID,
 		StartTime:         startTime,
 		EndTime:           endTime,
 		ApprovedByPatient: false,
@@ -135,7 +150,7 @@ func (server appointmentsServer) CreateAppointment(
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to create an appointment: %w", err).Error())
 	}
 
-	return &ppb.AppointmentID{Id: int64(appointment.ID)}, nil
+	return &ppb.CreateAppointmentResponse{Id: int32(appointment.ID)}, nil
 }
 
 // GetAppointments returns a list of appointments based on provided filters.
@@ -143,7 +158,7 @@ func (server appointmentsServer) CreateAppointment(
 // Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in parsing the date or fetching appointments, an appropriate error is returned.
 func (server appointmentsServer) GetAppointments(ctx context.Context,
-	req *ppb.RangeRequest) (*ppb.AppointmentsResponse, error) {
+	req *ppb.GetAppointmentsRequest) (*ppb.GetAppointmentsResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -152,18 +167,28 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 		return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
 	}
 
-	// Assuming req.GetDate() returns a string in "2006-01-02" format
-	dateStr := req.GetDate()
-	date, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse date: %w", err).Error())
+	if req.GetSkip() < 0 {
+		return nil, status.Error(codes.InvalidArgument, "skip has to be a non-negative integer")
+	}
+	if req.GetLimit() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "limit has to be a positive integer")
+	}
+	if req.GetLimit() > maxPaginationLimit {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("maximum allowed limit values is %d", maxPaginationLimit))
 	}
 
 	// Fetch appointments based on filters
 	baseQuery := server.db.NewSelect().Model((*Appointment)(nil))
 
 	// Filter by date range
-	baseQuery = baseQuery.Where("start_time >= ?", date).Where("end_time <= ?", date.AddDate(0, 0, 1))
+	dateStr := req.GetDate()
+	if dateStr != "" {
+		date, dateErr := time.Parse("2006-01-02", dateStr)
+		if dateErr != nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse date: %w", dateErr).Error())
+		}
+		baseQuery = baseQuery.Where("start_time >= ?", date).Where("end_time <= ?", date.AddDate(0, 0, 1))
+	}
 
 	// Filter by doctor ID
 	if req.GetDoctorId() != 0 {
@@ -177,7 +202,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 
 	// Execute query and get count
 	var ids []int32
-	err = baseQuery.Column("id").Scan(ctx, &ids)
+	err = baseQuery.Column("id").Offset(int(req.GetSkip())).Limit(int(req.GetLimit())).Scan(ctx, &ids)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch appointment IDs: %w", err).Error())
 	}
@@ -187,7 +212,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to count appointments: %w", err).Error())
 	}
 
-	return &ppb.AppointmentsResponse{
+	return &ppb.GetAppointmentsResponse{
 		Count:   int32(count),
 		Results: ids,
 	}, nil
@@ -198,7 +223,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 // Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or updating the appointment, an appropriate error is returned.
 func (server appointmentsServer) AssignPatient(ctx context.Context,
-	req *ppb.AssignPatientRequest) (*ppb.PatientID, error) {
+	req *ppb.AssignPatientRequest) (*ppb.AssignPatientResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -213,13 +238,18 @@ func (server appointmentsServer) AssignPatient(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
 
-	appointment.PatientID = int(req.GetPatientId())
+	patientID := int(req.GetPatientId())
+	if patientID < 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("PatientID has to be non-negative values").Error())
+	}
+	appointment.PatientID = patientID
 	_, err = server.db.NewUpdate().Model(appointment).WherePK().Exec(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to assign patient to appointment: %w", err).Error())
 	}
 
-	return &ppb.PatientID{PatientId: req.GetPatientId()}, nil
+	return &ppb.AssignPatientResponse{PatientId: req.GetPatientId()}, nil
 }
 
 // RemovePatient removes a patient from an existing appointment.
@@ -227,7 +257,7 @@ func (server appointmentsServer) AssignPatient(ctx context.Context,
 // Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or updating the appointment, an appropriate error is returned.
 func (server appointmentsServer) RemovePatient(ctx context.Context,
-	req *ppb.AppointmentIDRequest) (*ppb.PatientID, error) {
+	req *ppb.RemovePatientRequest) (*ppb.RemovePatientResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -237,7 +267,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetAppointmentId()).Scan(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
@@ -249,7 +279,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to remove patient from appointment: %w", err).Error())
 	}
 
-	return &ppb.PatientID{PatientId: int64(patientID)}, nil
+	return &ppb.RemovePatientResponse{PatientId: int32(patientID)}, nil
 }
 
 // DeleteAppointment deletes an appointment based on the provided ID.
@@ -257,7 +287,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 // Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or deleting the appointment, an appropriate error is returned.
 func (server appointmentsServer) DeleteAppointment(ctx context.Context,
-	req *ppb.AppointmentIDRequest) (*ppb.DeletedMessage, error) {
+	req *ppb.DeleteAppointmentRequest) (*ppb.DeleteAppointmentResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -267,7 +297,7 @@ func (server appointmentsServer) DeleteAppointment(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetAppointmentId()).Scan(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
@@ -277,7 +307,7 @@ func (server appointmentsServer) DeleteAppointment(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to delete appointment: %w", err).Error())
 	}
 
-	return &ppb.DeletedMessage{Message: "Appointment deleted successfully"}, nil
+	return &ppb.DeleteAppointmentResponse{Message: "Appointment deleted successfully"}, nil
 }
 
 // createAppointmentsServer initializing an AppointmentServer with all the necessary fields.

@@ -5,69 +5,79 @@ option go_package = "github.com/TekClinic/Appointments-MicroService/appointments
 package appointments;
 
 service AppointmentsService {
-  rpc GetAppointment(GetAppointmentRequest) returns (Appointment);
-  rpc CreateAppointment(PostAppointmentRequest) returns (AppointmentID);
-  rpc GetAppointments(RangeRequest) returns (AppointmentsResponse);
-  rpc AssignPatient(AssignPatientRequest) returns (PatientID);
-  rpc RemovePatient(AppointmentIDRequest) returns (PatientID);
-  rpc DeleteAppointment(AppointmentIDRequest) returns (DeletedMessage);
+  rpc GetAppointment(GetAppointmentRequest) returns (GetAppointmentResponse);
+  rpc CreateAppointment(CreateAppointmentRequest) returns (CreateAppointmentResponse);
+  rpc GetAppointments(GetAppointmentsRequest) returns (GetAppointmentsResponse);
+  rpc AssignPatient(AssignPatientRequest) returns (AssignPatientResponse);
+  rpc RemovePatient(RemovePatientRequest) returns (RemovePatientResponse);
+  rpc DeleteAppointment(DeleteAppointmentRequest) returns (DeleteAppointmentResponse);
 }
-
 
 message GetAppointmentRequest {
   string token = 1;
-  int64 id = 2;
+  int32 id = 2;
 }
 
-message Appointment {
-  int64 id = 1;
-  int64 patient_id = 2;
-  int64 doctor_id = 3;
+message GetAppointmentResponse {
+  int32 id = 1;
+  int32 patient_id = 2;
+  int32 doctor_id = 3;
   string start_time = 4;
   string end_time = 5;
   bool approved_by_patient = 6;
   bool visited = 7;
 }
 
-message PostAppointmentRequest {
+message CreateAppointmentRequest {
   string token = 1;
-  int64 patient_id = 2;
-  int64 doctor_id = 3;
+  int32 patient_id = 2;
+  int32 doctor_id = 3;
   string start_time = 4;
   string end_time = 5;
 }
 
-message AppointmentID {
-  int64 id = 1;
+message CreateAppointmentResponse {
+  int32 id = 1;
 }
 
-message RangeRequest {
+message GetAppointmentsRequest {
   string token = 1;
   string date = 2;
-  int64 doctor_id = 3;
-  int64 patient_id = 4;
+  int32 doctor_id = 3;
+  int32 patient_id = 4;
+  int32 skip = 5;
+  int32 limit = 6;
 }
 
-message AppointmentsResponse {
+message GetAppointmentsResponse {
   int32 count = 1;
   repeated int32 results = 2;
 }
 
 message AssignPatientRequest {
   string token = 1;
-  int64 appointment_id = 2;
-  int64 patient_id = 3;
+  int32 appointment_id = 2;
+  int32 patient_id = 3;
 }
 
-message AppointmentIDRequest {
+message AssignPatientResponse {
+  int32 patient_id = 1;
+}
+
+message RemovePatientRequest {
   string token = 1;
-  int64 id = 2;
+  int32 appointment_id = 2;
 }
 
-message PatientID{
-  int64 patient_id = 1;
+message RemovePatientResponse {
+  int32 patient_id = 1;
 }
 
-message DeletedMessage{
+message DeleteAppointmentRequest {
+  string token = 1;
+  int32 appointment_id = 2;
+}
+
+message DeleteAppointmentResponse {
   string message = 1;
 }
