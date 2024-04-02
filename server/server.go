@@ -69,6 +69,7 @@ type appointmentsServer struct {
 const (
 	permissionDeniedMessage = "You don't have enough permission to access this resource"
 	maxPaginationLimit      = 50
+	dateFormat              = "2006-01-02"
 )
 
 // GetAppointment returns the appointment information corresponding to the given ID.
@@ -183,7 +184,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 	// Filter by date range
 	dateStr := req.GetDate()
 	if dateStr != "" {
-		date, dateErr := time.Parse("2006-01-02", dateStr)
+		date, dateErr := time.Parse(dateFormat, dateStr)
 		if dateErr != nil {
 			return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse date: %w", dateErr).Error())
 		}
