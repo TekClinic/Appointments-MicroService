@@ -1,5 +1,7 @@
 go 1.22.0
 
-use ./appointments_protobuf
+use (
+	./appointments_protobuf
+	./server
+)
 
-use ./server
