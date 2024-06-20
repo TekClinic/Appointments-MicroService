@@ -30,7 +30,7 @@ WORKDIR /app
 COPY --from=deps $GOPATH $GOPATH
 
 # Copy the source code
-COPY server/* .
+COPY server/* ./
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /appointments-ms
