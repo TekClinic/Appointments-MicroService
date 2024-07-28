@@ -355,6 +355,75 @@ func createAppointmentsServer() (*appointmentsServer, error) {
 	return &appointmentsServer{BaseServiceServer: base, db: db}, nil
 }
 
+// EditAppointment updates an existing appointment based on the provided details.
+// Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
+// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// If one of the fields has an invalid value, an appropriate error is returned.
+// If the appointment with the given ID doesn't exist, codes.NotFound is returned.
+// If there's an error in fetching or updating the appointment, an appropriate error is returned.
+func (server appointmentsServer) EditAppointment(ctx context.Context,
+	req *ppb.EditAppointmentRequest) (*ppb.EditAppointmentResponse, error) {
+	claims, err := server.VerifyToken(ctx, req.GetToken())
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	if !claims.HasRole("admin") {
+		return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
+	}
+
+	appointmentID := req.GetAppointmentId()
+	if appointmentID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "AppointmentID is required")
+	}
+
+	appointment := new(Appointment)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), appointmentID).Scan(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
+	}
+
+	patientID := int(req.GetPatientId())
+	doctorID := int(req.GetDoctorId())
+	if doctorID == 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("DoctorID is required in order to update an appointment").Error())
+	}
+	if patientID == 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("PatientID is required in order to update an appointment").Error())
+	}
+	if patientID < 0 || doctorID < 0 {
+		return nil, status.Error(codes.InvalidArgument,
+			errors.New("PatientID, DoctorID have to be non-negative values").Error())
+	}
+
+	startTimeStr := req.GetStartTime()
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse start time: %w", err).Error())
+	}
+
+	endTimeStr := req.GetEndTime()
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse end time: %w", err).Error())
+	}
+
+	appointment.PatientID = patientID
+	appointment.DoctorID = doctorID
+	appointment.StartTime = startTime
+	appointment.EndTime = endTime
+	appointment.ApprovedByPatient = req.GetApprovedByPatient()
+	appointment.Visited = req.GetVisited()
+
+	_, err = server.db.NewUpdate().Model(appointment).WherePK().Exec(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, fmt.Errorf("failed to update appointment: %w", err).Error())
+	}
+
+	return &ppb.EditAppointmentResponse{AppointmentId: int32(appointment.ID)}, nil
+}
+
 func main() {
 	service, err := createAppointmentsServer()
 	if err != nil {
