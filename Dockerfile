@@ -10,9 +10,14 @@ RUN apk add --no-cache git
 
 WORKDIR /app
 
+# Copy protobuf files
+COPY ./appointments_protobuf ./appointments_protobuf
+
 # Copy go.mod and go.sum
-COPY server/go.mod .
-COPY server/go.sum .
+COPY ./server/go.mod ./server/go.mod
+COPY ./server/go.sum ./server/go.sum
+
+WORKDIR /app/server
 
 # Build argument for GitHub token
 ARG GITHUB_ACTOR
@@ -30,7 +35,9 @@ WORKDIR /app
 COPY --from=deps $GOPATH $GOPATH
 
 # Copy the source code
-COPY server/* ./
+COPY . .
+
+WORKDIR /app/server
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /appointments-ms
