@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"time"
+
+	"go.uber.org/zap"
 
 	ppb "github.com/TekClinic/Appointments-MicroService/appointments_protobuf"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
-	"github.com/uptrace/bun/extra/bundebug"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,7 +59,7 @@ func createSchemaIfNotExists(ctx context.Context, db *bun.DB) error {
 	return nil
 }
 
-// appointmentsServer is an implementation of GRPC appointment ms. It provides access to database via db field.
+// appointmentsServer is an implementation of GRPC appointment ms. It provides access to a database via db field.
 type appointmentsServer struct {
 	ppb.UnimplementedAppointmentsServiceServer
 	ms.BaseServiceServer
@@ -67,14 +67,22 @@ type appointmentsServer struct {
 }
 
 const (
+	envDBAddress  = "DB_ADDR"
+	envDBUser     = "DB_USER"
+	envDBDatabase = "DB_DATABASE"
+	envDBPassword = "DB_PASSWORD"
+
+	applicationName = "appointments"
+
 	permissionDeniedMessage = "You don't have enough permission to access this resource"
-	maxPaginationLimit      = 50
-	dateFormat              = "2006-01-02"
+
+	maxPaginationLimit = 50
+	dateFormat         = "2006-01-02"
 )
 
 // GetAppointment returns the appointment information corresponding to the given ID.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If the appointment with the given ID doesn't exist, codes.NotFound is returned.
 func (server appointmentsServer) GetAppointment(ctx context.Context,
 	req *ppb.GetAppointmentRequest) (*ppb.GetAppointmentResponse, error) {
@@ -98,7 +106,7 @@ func (server appointmentsServer) GetAppointment(ctx context.Context,
 
 // CreateAppointment creates a new appointment based on the provided details.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in parsing the start or end time, an appropriate error is returned.
 // If there's an error in creating the appointment, an appropriate error is returned.
 func (server appointmentsServer) CreateAppointment(
@@ -156,7 +164,7 @@ func (server appointmentsServer) CreateAppointment(
 
 // GetAppointments returns a list of appointments based on provided filters.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in parsing the date or fetching appointments, an appropriate error is returned.
 func (server appointmentsServer) GetAppointments(ctx context.Context,
 	req *ppb.GetAppointmentsRequest) (*ppb.GetAppointmentsResponse, error) {
@@ -201,7 +209,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 		baseQuery = baseQuery.Where("patient_id = ?", req.GetPatientId())
 	}
 
-	// Execute query and get count
+	// Execute a query and get count
 	var ids []int32
 	err = baseQuery.Column("id").Offset(int(req.GetSkip())).Limit(int(req.GetLimit())).Scan(ctx, &ids)
 	if err != nil {
@@ -221,7 +229,7 @@ func (server appointmentsServer) GetAppointments(ctx context.Context,
 
 // AssignPatient assigns a patient to an existing appointment.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or updating the appointment, an appropriate error is returned.
 func (server appointmentsServer) AssignPatient(ctx context.Context,
 	req *ppb.AssignPatientRequest) (*ppb.AssignPatientResponse, error) {
@@ -255,7 +263,7 @@ func (server appointmentsServer) AssignPatient(ctx context.Context,
 
 // RemovePatient removes a patient from an existing appointment.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or updating the appointment, an appropriate error is returned.
 func (server appointmentsServer) RemovePatient(ctx context.Context,
 	req *ppb.RemovePatientRequest) (*ppb.RemovePatientResponse, error) {
@@ -285,7 +293,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 
 // DeleteAppointment deletes an appointment based on the provided ID.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If there's an error in fetching or deleting the appointment, an appropriate error is returned.
 func (server appointmentsServer) DeleteAppointment(ctx context.Context,
 	req *ppb.DeleteAppointmentRequest) (*ppb.DeleteAppointmentResponse, error) {
@@ -317,19 +325,19 @@ func createAppointmentsServer() (*appointmentsServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	addr, err := ms.GetRequiredEnv("DB_ADDR")
+	addr, err := ms.GetRequiredEnv(envDBAddress)
 	if err != nil {
 		return nil, err
 	}
-	user, err := ms.GetRequiredEnv("DB_USER")
+	user, err := ms.GetRequiredEnv(envDBUser)
 	if err != nil {
 		return nil, err
 	}
-	password, err := ms.GetRequiredEnv("DB_PASSWORD")
+	password, err := ms.GetRequiredEnv(envDBPassword)
 	if err != nil {
 		return nil, err
 	}
-	database, err := ms.GetRequiredEnv("DB_DATABASE")
+	database, err := ms.GetRequiredEnv(envDBDatabase)
 	if err != nil {
 		return nil, err
 	}
@@ -339,38 +347,35 @@ func createAppointmentsServer() (*appointmentsServer, error) {
 		pgdriver.WithUser(user),
 		pgdriver.WithPassword(password),
 		pgdriver.WithDatabase(database),
-		pgdriver.WithApplicationName("appointments"),
-		pgdriver.WithInsecure(true),
+		pgdriver.WithApplicationName(applicationName),
+		pgdriver.WithInsecure(!ms.HasSecureConnection()),
 	)
 	db := bun.NewDB(sql.OpenDB(connector), pgdialect.New())
-	db.AddQueryHook(bundebug.NewQueryHook(
-		bundebug.WithVerbose(true),
-		bundebug.FromEnv("BUNDEBUG"),
-	))
+	db.AddQueryHook(ms.GetDBQueryHook())
 	return &appointmentsServer{BaseServiceServer: base, db: db}, nil
 }
 
 func main() {
 	service, err := createAppointmentsServer()
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal("Failed to create appointments server", zap.Error(err))
 	}
 
 	err = createSchemaIfNotExists(context.Background(), service.db)
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal("Failed to create schema", zap.Error(err))
 	}
 
 	listen, err := net.Listen("tcp", ":"+service.GetPort())
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		zap.L().Fatal("Failed to listen", zap.Error(err))
 	}
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(ms.GetGRPCServerOptions()...)
 	ppb.RegisterAppointmentsServiceServer(srv, service)
 
-	log.Println("Server listening on :" + service.GetPort())
+	zap.L().Info("Server listening on :" + service.GetPort())
 	if err = srv.Serve(listen); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		zap.L().Fatal("Failed to serve", zap.Error(err))
 	}
 }
