@@ -21,44 +21,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Appointment defines a schema of appointments.
-type Appointment struct {
-	ID                int `bun:",pk,autoincrement"`
-	PatientID         int
-	DoctorID          int
-	StartTime         time.Time
-	EndTime           time.Time
-	ApprovedByPatient bool
-	Visited           bool
-}
-
-// toGRPC returns a GRPC version of Appointment.
-func (appointment Appointment) toGRPC() *ppb.GetAppointmentResponse {
-	return &ppb.GetAppointmentResponse{
-		Id:                int32(appointment.ID),
-		PatientId:         int32(appointment.PatientID),
-		DoctorId:          int32(appointment.DoctorID),
-		StartTime:         appointment.StartTime.Format(time.RFC3339),
-		EndTime:           appointment.EndTime.Format(time.RFC3339),
-		ApprovedByPatient: appointment.ApprovedByPatient,
-		Visited:           appointment.Visited,
-	}
-}
-
-// createSchemaIfNotExists creates all required schemas for appointment microservice.
-func createSchemaIfNotExists(ctx context.Context, db *bun.DB) error {
-	models := []interface{}{
-		(*Appointment)(nil),
-	}
-
-	for _, model := range models {
-		if _, err := db.NewCreateTable().IfNotExists().Model(model).Exec(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // appointmentsServer is an implementation of GRPC appointment ms. It provides access to a database via db field.
 type appointmentsServer struct {
 	ppb.UnimplementedAppointmentsServiceServer
@@ -134,8 +96,8 @@ func (server appointmentsServer) CreateAppointment(
 		return nil, status.Error(codes.InvalidArgument, fmt.Errorf("failed to parse end time: %w", err).Error())
 	}
 
-	patientID := int(req.GetPatientId())
-	doctorID := int(req.GetDoctorId())
+	patientID := req.GetPatientId()
+	doctorID := req.GetDoctorId()
 	if doctorID == 0 {
 		return nil, status.Error(codes.InvalidArgument,
 			errors.New("DoctorID is required in order to create an appointment").Error())
@@ -159,7 +121,7 @@ func (server appointmentsServer) CreateAppointment(
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to create an appointment: %w", err).Error())
 	}
 
-	return &ppb.CreateAppointmentResponse{Id: int32(appointment.ID)}, nil
+	return &ppb.CreateAppointmentResponse{Id: appointment.ID}, nil
 }
 
 // GetAppointments returns a list of appointments based on provided filters.
@@ -242,23 +204,24 @@ func (server appointmentsServer) AssignPatient(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetAppointmentId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
 
-	patientID := int(req.GetPatientId())
+	patientID := req.GetPatientId()
 	if patientID < 0 {
 		return nil, status.Error(codes.InvalidArgument,
 			errors.New("PatientID has to be non-negative values").Error())
 	}
+	formerPatientID := appointment.PatientID
 	appointment.PatientID = patientID
 	_, err = server.db.NewUpdate().Model(appointment).WherePK().Exec(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to assign patient to appointment: %w", err).Error())
 	}
 
-	return &ppb.AssignPatientResponse{PatientId: req.GetPatientId()}, nil
+	return &ppb.AssignPatientResponse{PatientId: formerPatientID}, nil
 }
 
 // RemovePatient removes a patient from an existing appointment.
@@ -276,7 +239,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetAppointmentId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
@@ -288,7 +251,7 @@ func (server appointmentsServer) RemovePatient(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to remove patient from appointment: %w", err).Error())
 	}
 
-	return &ppb.RemovePatientResponse{PatientId: int32(patientID)}, nil
+	return &ppb.RemovePatientResponse{PatientId: patientID}, nil
 }
 
 // DeleteAppointment deletes an appointment based on the provided ID.
@@ -306,7 +269,7 @@ func (server appointmentsServer) DeleteAppointment(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetAppointmentId()).Scan(ctx)
+	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
@@ -355,14 +318,14 @@ func createAppointmentsServer() (*appointmentsServer, error) {
 	return &appointmentsServer{BaseServiceServer: base, db: db}, nil
 }
 
-// EditAppointment updates an existing appointment based on the provided details.
+// UpdateAppointment updates an existing appointment based on the provided details.
 // Requires authentication. If authentication is not valid, codes.Unauthenticated is returned.
-// Requires admin role. If roles are not sufficient, codes.PermissionDenied is returned.
+// Requires an admin role. If roles are not sufficient, codes.PermissionDenied is returned.
 // If one of the fields has an invalid value, an appropriate error is returned.
 // If the appointment with the given ID doesn't exist, codes.NotFound is returned.
 // If there's an error in fetching or updating the appointment, an appropriate error is returned.
-func (server appointmentsServer) EditAppointment(ctx context.Context,
-	req *ppb.EditAppointmentRequest) (*ppb.EditAppointmentResponse, error) {
+func (server appointmentsServer) UpdateAppointment(ctx context.Context,
+	req *ppb.UpdateAppointmentRequest) (*ppb.UpdateAppointmentResponse, error) {
 	claims, err := server.VerifyToken(ctx, req.GetToken())
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -371,7 +334,7 @@ func (server appointmentsServer) EditAppointment(ctx context.Context,
 		return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
 	}
 
-	appointmentID := req.GetAppointmentId()
+	appointmentID := req.GetId()
 	if appointmentID == 0 {
 		return nil, status.Error(codes.InvalidArgument, "AppointmentID is required")
 	}
@@ -382,15 +345,11 @@ func (server appointmentsServer) EditAppointment(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
 	}
 
-	patientID := int(req.GetPatientId())
-	doctorID := int(req.GetDoctorId())
+	patientID := req.GetPatientId()
+	doctorID := req.GetDoctorId()
 	if doctorID == 0 {
 		return nil, status.Error(codes.InvalidArgument,
 			errors.New("DoctorID is required in order to update an appointment").Error())
-	}
-	if patientID == 0 {
-		return nil, status.Error(codes.InvalidArgument,
-			errors.New("PatientID is required in order to update an appointment").Error())
 	}
 	if patientID < 0 || doctorID < 0 {
 		return nil, status.Error(codes.InvalidArgument,
@@ -421,7 +380,7 @@ func (server appointmentsServer) EditAppointment(ctx context.Context,
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to update appointment: %w", err).Error())
 	}
 
-	return &ppb.EditAppointmentResponse{AppointmentId: int32(appointment.ID)}, nil
+	return &ppb.UpdateAppointmentResponse{Id: appointment.ID}, nil
 }
 
 func main() {

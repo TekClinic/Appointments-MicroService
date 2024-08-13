@@ -11,7 +11,7 @@ service AppointmentsService {
   rpc AssignPatient(AssignPatientRequest) returns (AssignPatientResponse);
   rpc RemovePatient(RemovePatientRequest) returns (RemovePatientResponse);
   rpc DeleteAppointment(DeleteAppointmentRequest) returns (DeleteAppointmentResponse);
-  rpc EditAppointment(EditAppointmentRequest) returns (EditAppointmentResponse);
+  rpc UpdateAppointment(UpdateAppointmentRequest) returns (UpdateAppointmentResponse);
 }
 
 message GetAppointmentRequest {
@@ -57,7 +57,7 @@ message GetAppointmentsResponse {
 
 message AssignPatientRequest {
   string token = 1;
-  int32 appointment_id = 2;
+  int32 id = 2;
   int32 patient_id = 3;
 }
 
@@ -67,7 +67,7 @@ message AssignPatientResponse {
 
 message RemovePatientRequest {
   string token = 1;
-  int32 appointment_id = 2;
+  int32 id = 2;
 }
 
 message RemovePatientResponse {
@@ -76,16 +76,16 @@ message RemovePatientResponse {
 
 message DeleteAppointmentRequest {
   string token = 1;
-  int32 appointment_id = 2;
+  int32 id = 2;
 }
 
 message DeleteAppointmentResponse {
   string message = 1;
 }
 
-message EditAppointmentRequest {
+message UpdateAppointmentRequest {
   string token = 1;
-  int32 appointment_id = 2;
+  int32 id = 2;
   int32 patient_id = 3;
   int32 doctor_id = 4;
   string start_time = 5;
@@ -94,6 +94,6 @@ message EditAppointmentRequest {
   bool visited = 8;
 }
 
-message EditAppointmentResponse {
-  int32 appointment_id = 1;
+message UpdateAppointmentResponse {
+  int32 id = 1;
 }
