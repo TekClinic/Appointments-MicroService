@@ -17,6 +17,8 @@ type Appointment struct {
 	EndTime           time.Time
 	ApprovedByPatient bool
 	Visited           bool
+	CreatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	DeletedAt         time.Time `bun:",soft_delete,nullzero"`
 }
 
 // toGRPC returns a GRPC version of Appointment.
@@ -43,5 +45,14 @@ func createSchemaIfNotExists(ctx context.Context, db *bun.DB) error {
 			return err
 		}
 	}
+
+	// Migration code. Add created_at and deleted_at columns to the patient table for soft delete.
+	if _, err := db.NewRaw(
+		"ALTER TABLE appointments " +
+			"ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(), " +
+			"ADD COLUMN IF NOT EXISTS deleted_at timestamptz;").Exec(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }

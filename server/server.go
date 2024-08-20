@@ -57,7 +57,11 @@ func (server appointmentsServer) GetAppointment(ctx context.Context,
 	}
 
 	appointment := new(Appointment)
-	err = server.db.NewSelect().Model(appointment).Where("? = ?", bun.Ident("id"), req.GetId()).Scan(ctx)
+	err = server.db.NewSelect().
+		Model(appointment).
+		Where("? = ?", bun.Ident("id"), req.GetId()).
+		WhereAllWithDeleted().
+		Scan(ctx)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to fetch an appointment by id: %w", err).Error())
@@ -375,7 +379,11 @@ func (server appointmentsServer) UpdateAppointment(ctx context.Context,
 	appointment.ApprovedByPatient = req.GetApprovedByPatient()
 	appointment.Visited = req.GetVisited()
 
-	_, err = server.db.NewUpdate().Model(appointment).WherePK().Exec(ctx)
+	_, err = server.db.NewUpdate().
+		Model(appointment).
+		WherePK().
+		ExcludeColumn("created_at", "deleted_at").
+		Exec(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Errorf("failed to update appointment: %w", err).Error())
 	}
